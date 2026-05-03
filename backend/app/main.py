@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
-from app.routers import businesses, reviews
+from app.routers import businesses, reviews, google_auth
 
 load_dotenv()
 
@@ -23,6 +23,7 @@ app.add_middleware(
 
 app.include_router(businesses.router)
 app.include_router(reviews.router)
+app.include_router(google_auth.router)
 
 @app.get("/health")
 def health_check():
