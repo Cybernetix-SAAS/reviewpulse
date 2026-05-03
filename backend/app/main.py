@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from app.routers import businesses, reviews
 
 load_dotenv()
 
@@ -14,6 +15,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(businesses.router)
+app.include_router(reviews.router)
 
 @app.get("/health")
 def health_check():
