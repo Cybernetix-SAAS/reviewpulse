@@ -8,14 +8,17 @@ load_dotenv()
 
 app = FastAPI(title="ReviewPulse API", version="1.0.0")
 
+_extra = [o.strip() for o in os.getenv("FRONTEND_URL", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
-        os.getenv("FRONTEND_URL", "http://localhost:5173")
+        *_extra,
     ],
+    allow_origin_regex=r"https://(.*\.vercel\.app|.*\.railway\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
