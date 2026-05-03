@@ -6,14 +6,19 @@ import os
 
 router = APIRouter(prefix="/businesses", tags=["businesses"])
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-headers_sb = {
-    "apikey": SUPABASE_SERVICE_KEY or "",
-    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY or ''}",
-    "Content-Type": "application/json"
-}
+def get_headers():
+    key = os.getenv("SUPABASE_SERVICE_KEY", "")
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+
+
+def get_supabase_url():
+    return os.getenv("SUPABASE_URL", "")
+
 
 class BusinessCreate(BaseModel):
     name: str
@@ -22,6 +27,7 @@ class BusinessCreate(BaseModel):
     google_rating: Optional[float] = None
     total_reviews: Optional[int] = 0
     user_id: str
+
 
 class BusinessSearch(BaseModel):
     query: str
@@ -46,10 +52,12 @@ async def get_place(place_id: str):
 
 @router.post("/")
 async def create_business(data: BusinessCreate):
+    url = get_supabase_url()
+    headers = get_headers()
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{SUPABASE_URL}/rest/v1/businesses",
-            headers=headers_sb,
+            f"{url}/rest/v1/businesses",
+            headers=headers,
             json={
                 "user_id": data.user_id,
                 "name": data.name,
@@ -69,9 +77,11 @@ async def create_business(data: BusinessCreate):
 
 @router.get("/user/{user_id}")
 async def get_user_businesses(user_id: str):
+    url = get_supabase_url()
+    headers = get_headers()
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{SUPABASE_URL}/rest/v1/businesses?user_id=eq.{user_id}&select=*",
-            headers=headers_sb
+            f"{url}/rest/v1/businesses?user_id=eq.{user_id}&select=*",
+            headers=headers
         )
         return response.json()

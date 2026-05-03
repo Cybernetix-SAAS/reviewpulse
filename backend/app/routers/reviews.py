@@ -6,15 +6,18 @@ import os
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-headers_sb = {
-    "apikey": SUPABASE_SERVICE_KEY or "",
-    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY or ''}",
-    "Content-Type": "application/json"
-}
+def get_headers():
+    key = os.getenv("SUPABASE_SERVICE_KEY", "")
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+
+
+def get_supabase_url():
+    return os.getenv("SUPABASE_URL", "")
 
 
 def get_sentiment(rating: int) -> str:
@@ -29,11 +32,13 @@ def get_sentiment(rating: int) -> str:
 @router.get("/sync/{business_id}")
 async def sync_reviews(business_id: str):
     from app.services.google_places import get_place_reviews
+    url = get_supabase_url()
+    headers = get_headers()
 
     async with httpx.AsyncClient() as client:
         res = await client.get(
-            f"{SUPABASE_URL}/rest/v1/businesses?id=eq.{business_id}&select=*",
-            headers=headers_sb
+            f"{url}/rest/v1/businesses?id=eq.{business_id}&select=*",
+            headers=headers
         )
         businesses = res.json()
         if not businesses:
@@ -61,16 +66,16 @@ async def sync_reviews(business_id: str):
             }
 
             upsert_res = await client.post(
-                f"{SUPABASE_URL}/rest/v1/reviews",
-                headers={**headers_sb, "Prefer": "resolution=ignore-duplicates"},
+                f"{url}/rest/v1/reviews",
+                headers={**headers, "Prefer": "resolution=ignore-duplicates"},
                 json=review_data
             )
             if upsert_res.status_code in [200, 201]:
                 saved += 1
 
         await client.patch(
-            f"{SUPABASE_URL}/rest/v1/businesses?id=eq.{business_id}",
-            headers=headers_sb,
+            f"{url}/rest/v1/businesses?id=eq.{business_id}",
+            headers=headers,
             json={
                 "google_rating": google_data.get("rating"),
                 "total_reviews": google_data.get("total_reviews")
@@ -82,10 +87,12 @@ async def sync_reviews(business_id: str):
 
 @router.get("/{business_id}")
 async def get_reviews(business_id: str):
+    url = get_supabase_url()
+    headers = get_headers()
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{SUPABASE_URL}/rest/v1/reviews?business_id=eq.{business_id}&select=*&order=created_at.desc",
-            headers=headers_sb
+            f"{url}/rest/v1/reviews?business_id=eq.{business_id}&select=*&order=created_at.desc",
+            headers=headers
         )
         return response.json()
 
@@ -99,6 +106,8 @@ class GenerateResponse(BaseModel):
 
 @router.post("/generate-response")
 async def generate_response(data: GenerateResponse):
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+
     tone = "apologetic and solution-focused" if data.rating <= 2 else \
            "appreciative and warm" if data.rating >= 4 else "professional"
 
@@ -118,7 +127,7 @@ Response:"""
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Authorization": f"Bearer {openai_key}",
                 "Content-Type": "application/json"
             },
             json={
